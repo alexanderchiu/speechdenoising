@@ -30,6 +30,22 @@ def segment_windows(signal, ww, ov):
         seg[:, i] = signal[start:stop] * np.hamming(ww)
     return seg, frames
 
+def combine_segemnts(segments, ov):
+    '''
+    Parameters
+        signal  - array of normalized signal samples
+        ov - overlap ratio of windows
+    '''
+    ww, frames = segments.shape
+    dataleng = ww*(1-ov)*(frames- 1) + ww;
+
+    sig = np.zeros(dataleng);
+    for i in range(frames):
+        start = i*ww*(1-ov);
+        stop = start+ww;
+        sig[start:stop] = sig[start:stop] + segments[:,i]
+    return sig
+
 # User Parameters
 
 # FFT
@@ -41,14 +57,17 @@ beta = 2
 eta = 1.5
 
 # Noise Filtering
-sw1 = 4
-sw2 = 4
-lw1 = 7
-lw2 = 7
+sw1 = 5
+sw2 = 5
+lw1 = 10
+lw2 = 10
 lmda = 5
 
-csig = wavfile.read('./data/car_clean_lom.wav')  # sampled clean signal
-fs, ss = wavfile.read('./data/car_lom.wav')  # sampled obeserved signal
+# Smooting
+delta = 0.9;
+
+
+fs, ss = wavfile.read('./data/DEKF_cellular_0db__noisy.wav')  # sampled obeserved signal
 ss = ss / float(np.power(2, 15))  # normalisation
 
 ssw, frames = segment_windows(ss, window_length, overlap_ratio)
@@ -77,22 +96,39 @@ for f in range(frames):
 # spectral subtraction
 specsub = sfftmag - noise_spectrum
 negatives = specsub <= 0
-specsub[negatives] = np.abs(specsub[negatives] * np.power(10, -3))
+specsub[negatives] = np.abs(specsub[negatives])*pow(10,-3)
 
-
+peaks = []
 # time + freqency filter looking for isolated peaks
-for f in range(0,window_length,sw1):
-    for i in range(0,frames,sw2):
-    	sw = specsub[max(0,f-sw1):min(window_length,f+sw1),max(0,f-sw2):min(window_length,f+sw2)]
-    	lw = specsub[max(0,f-lw1):min(window_length,f+lw1),max(0,f-lw2):min(window_length,f+lw2)]
+for f in range(0, window_length, sw1):
+    for i in range(0, frames, sw2):
+        sw = specsub[max(0, f - sw1):min(window_length, f +
+                                         sw1+1), max(0, i - sw2):min(frames, i + sw2+1)]
+        lw = specsub[max(0, f - lw1):min(window_length, f +
+                                         lw1+1), max(0, i - lw2):min(frames, i + lw2+1)]
+        psw = np.sum(sw)
+        plw = np.sum(lw) - psw
+        if(psw > lmda * plw):
+            peaks.append((f, i))
 
-plt.figure()
-plt.plot(sfftmag[:, 550])
-plt.figure()
-plt.subplot(211)
+#Zero isolated peaks
+for peak in peaks:
+    f = peak[0]
+    t = peak[1]
+    t1 = max(0, t - sw2)
+    t2 = min(frames, t + sw2+1)
+    f1 = max(0, f - sw1)
+    f2 = min(window_length,f + sw1+1)
+    specsub[f1:f2, t1:t2] = np.zeros((f2-f1,t2-t1))
 
-plt.stem(noise_spectrum[:, 550])
-plt.subplot(212)
-plt.stem(specsub[:, 550])
 
-plt.show()
+for i in range(1,frames):
+    specsub[:,i] = np.sqrt((1- delta)*np.power(specsub[:,i-1],2) + delta*np.power(specsub[:,i],2))
+
+estim_spec = specsub*np.exp(1j*sfftphase)
+
+estim_seg = np.real(np.fft.ifft(estim_spec,axis =0))
+
+estim = combine_segemnts(estim_seg,overlap_ratio)
+
+wavfile.write('estimate.wav',fs,estim);
