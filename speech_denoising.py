@@ -11,13 +11,14 @@ import numpy as np
 from scipy.io import wavfile
 import matplotlib.mlab as mlab
 import sys
+import scikits.audiolab
 
 
 def segment_windows(signal, ww, ov):
     '''
     Parameters
         signal  - array of normalized signal samples
-        ww - windwow width
+        ww - window width
         ov - overlap ratio of windows
     '''
     l = len(signal)
@@ -50,27 +51,32 @@ def combine_segemnts(segments, ov):
 
 # User Parameters
 
+# Interface
+show_graphs = 0
+play_estimate = 1
+
 # FFT
-window_length = 256
-overlap_ratio = 0.5
+window_length = 512
+overlap_ratio = 0.5  # choose [0;0.5]
+
 # Noise  spectrum
 alpha = 0.9
 beta = 2
-eta = 1.5
+eta = 2
 
 # Noise Filtering
 sw1 = 4
 sw2 = 4
 lw1 = 7
 lw2 = 7
-lmda = 5
+lmda = 7
 
-# Smooting
-delta = 0.9
+# Smoothing
+delta = 0.75
 
 cfs, clean = wavfile.read('f16_clean_lom.wav')
-fs, ss = wavfile.read('f16_lom.wav')  # sampled obeserved signal
-ss = ss/np.power(2,15)
+fs, ss = wavfile.read('f16_lom.wav')  # sampled observed signal
+ss = ss / np.power(2, 15)
 
 
 ssw, frames = segment_windows(ss, window_length, overlap_ratio)
@@ -103,7 +109,7 @@ negatives = specsub <= 0
 specsub[negatives] = np.abs(specsub[negatives]) * pow(10, -3)
 
 peaks = []
-# time + freqency filter looking for isolated peaks
+# time + frequency filter looking for isolated peaks
 for f in range(0, window_length, sw1):
     for i in range(0, frames, sw2):
         sw = specsub[max(0, f - sw1):min(window_length, f +
@@ -136,59 +142,68 @@ estim_seg = np.real(np.fft.ifft(estim_spec, axis=0))
 
 estim = combine_segemnts(estim_seg, overlap_ratio)
 
-t = np.linspace(0, dataleng, dataleng) / fs
-plt.subplot(3, 3, 1),
 
-plt.plot(t, clean[:dataleng])
-plt.xlabel('Time (s)')
-plt.title('Clean speech')
-plt.xlim(0,max(t))
-plt.subplot(3, 3, 4)
-plt.plot(t, ss[:dataleng])
-plt.xlabel('Time (s)')
-plt.title('Observed speech')
-plt.xlim(0,max(t))
-plt.subplot(3, 3, 7),
-plt.plot(t, estim)
-plt.xlabel('Time (s)')
-plt.title('Denoised speech')
-plt.xlim(0,max(t))
+if(show_graphs == 1):
+    t = np.linspace(0, dataleng, dataleng) / fs
+    plt.subplot(3, 3, 1),
 
-wavfile.write('estimate.wav', fs, estim)
+    plt.plot(t, clean[:dataleng])
+    plt.xlabel('Time (s)')
+    plt.title('Clean speech')
+    plt.xlim(0, max(t))
+    plt.subplot(3, 3, 4)
+    plt.plot(t, ss[:dataleng])
+    plt.xlabel('Time (s)')
+    plt.title('Observed speech')
+    plt.xlim(0, max(t))
+    plt.subplot(3, 3, 7),
+    plt.plot(t, estim)
+    plt.xlabel('Time (s)')
+    plt.title('Denoised speech')
+    plt.xlim(0, max(t))
 
-cfft = np.abs(np.fft.fft(clean))
-ssfft = np.abs(np.fft.fft(ss))
-estimfft = np.abs(np.fft.fft(estim))
-plt.subplots_adjust(hspace=0.5)
+    wavfile.write('estimate.wav', fs, estim)
 
-plt.subplot(3, 3, 2)
-plt.plot(np.arange(len(cfft))/len(cfft),cfft)
-plt.xlabel('$f_w$')
-plt.title('Clean speech')
-plt.subplot(3, 3, 3)
-Pxx, freqs, bins, im = plt.specgram(clean, Fs=fs)
-plt.xlim(0,max(bins))
-plt.ylabel("Frequency (Hz)")
-plt.xlabel('t (s)')
-plt.title('Clean speech')
-plt.subplot(3, 3, 5)
-plt.xlabel('$f_w$')
-plt.title('Observed speech')
-plt.plot(np.arange(len(ssfft))/len(ssfft),ssfft)
-plt.subplot(3, 3, 6)
-Pxx, freqs, bins, im = plt.specgram(ss, Fs=fs)
-plt.xlim(0,max(bins))
-plt.ylabel("Frequency (Hz)")
-plt.xlabel('t (s)')
-plt.title('Observed speech')
-plt.subplot(3, 3, 8)
-plt.xlabel('$f_w$')
-plt.title('Denoised speech')
-plt.plot(np.arange(len(estimfft))/len(estimfft),estimfft)
-plt.subplot(3, 3, 9)
-Pxx, freqs, bins, im = plt.specgram(estim, Fs=fs)
-plt.xlim(0,max(bins))
-plt.ylabel("Frequency (Hz)")
-plt.xlabel('t (s)')
-plt.title('Denoised speech')
+    cfft = np.abs(np.fft.fft(clean))
+    ssfft = np.abs(np.fft.fft(ss))
+    estimfft = np.abs(np.fft.fft(estim))
+    plt.subplots_adjust(hspace=0.5)
+
+    plt.subplot(3, 3, 2)
+    plt.plot(np.arange(len(cfft)) / len(cfft), cfft)
+    plt.xlabel('$f_w$')
+    plt.title('Clean speech')
+    plt.subplot(3, 3, 3)
+    Pxx, freqs, bins, im = plt.specgram(clean, Fs=fs)
+    plt.xlim(0, max(bins))
+    plt.ylabel("Frequency (Hz)")
+    plt.xlabel('t (s)')
+    plt.title('Clean speech')
+    plt.subplot(3, 3, 5)
+    plt.xlabel('$f_w$')
+    plt.title('Observed speech')
+    plt.plot(np.arange(len(ssfft)) / len(ssfft), ssfft)
+    plt.subplot(3, 3, 6)
+    Pxx, freqs, bins, im = plt.specgram(ss, Fs=fs)
+    plt.xlim(0, max(bins))
+    plt.ylabel("Frequency (Hz)")
+    plt.xlabel('t (s)')
+    plt.title('Observed speech')
+    plt.subplot(3, 3, 8)
+    plt.xlabel('$f_w$')
+    plt.title('Denoised speech')
+    plt.plot(np.arange(len(estimfft)) / len(estimfft), estimfft)
+    plt.subplot(3, 3, 9)
+    Pxx, freqs, bins, im = plt.specgram(estim, Fs=fs)
+    plt.xlim(0, max(bins))
+    plt.ylabel("Frequency (Hz)")
+    plt.xlabel('t (s)')
+    plt.title('Denoised speech')
+
+
+
+if(play_estimate == 1):
+    scikits.audiolab.play(estim, fs)
+
+
 plt.show()
