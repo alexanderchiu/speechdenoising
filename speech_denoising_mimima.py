@@ -1,3 +1,7 @@
+# References:
+# [1] Speech Database: http://cslu.cse.ogi.edu/nsel/data/SpEAR_database.html
+# [2] Noise Power Spectral Density Estimation Based on Optimal Smoothing and Minimum Statistics
+
 from __future__ import division
 import matplotlib.pyplot as plt
 import numpy as np
@@ -5,7 +9,6 @@ from scipy.io import wavfile
 import matplotlib.mlab as mlab
 import sys
 import scikits.audiolab
-
 
 def segment_windows(signal, ww, ov):
     '''
@@ -44,12 +47,13 @@ def combine_segemnts(segments, ov):
         stop = start + ww
         sig[start:stop] = sig[start:stop] + segments[:, i]
     return sig
+
 window_length = 256
 overlap_ratio = 0.5  # [0:0.5]
 
 
-cfs, clean = wavfile.read('./data/car_clean_lom.wav')
-fs, ss = wavfile.read('./data/hynek.wav')  # sampled observed signal
+cfs, clean = wavfile.read('./data/f16_clean_lom.wav')
+fs, ss = wavfile.read('./data/f16_lom.wav')  # sampled observed signal
 ss = ss / np.power(2, 15)
 
 
@@ -139,57 +143,57 @@ for i in range(1, frames):
         bc[i] = 1 + 2.12*np.sqrt(q[i])
         
         bmin[k,i] = (1 + (D-1)*2*q[i])
-        # bmin_sub[k,i] = (1 + (V-1)*2*q[i])
-        pmin[k, i] = np.min(spd[k, max(0, i - D):i])
-        npsd[k,i] =pmin[k,i]*bmin[k,i]*bc[i]
-        # k_mod = np.zeros(window_length)
+            # bmin_sub[k,i] = (1 + (V-1)*2*q[i])
+        # pmin[k, i] = np.min(spd[k, max(0, i - D):i])
+        # npsd[k,i] =pmin[k,i]*bmin[k,i]*bc[i]
 
-        # if(spd[k,i]*bmin[k,i]*bc[i] < actmin[k,i]):
-        #     actmin[k,i] = spd[k,i]*bmin[k,i]*bc[i]
-        #     actmin_sub[k,i] = spd[k,i]*bmin_sub[k,i]*bc[i]
-        #     k_mod[k] =1
+        #micro windows currently not working
 
-        # if(subwc == V):
-        #     if(k_mod[k] == 1):
-        #         lmin_flag[k,i] = 0
-        #     store[i+k*window_length -1]= actmin[k,i]
+        k_mod = np.zeros(window_length)
 
-        #     pmin_u[k,i] = np.min(store[max(0,i+k*window_length-U):i+k*window_length])
-        #     if(q,[i]< 0.03):
-        #         noiseslopemax = 8
-        #     elif(q[i] <0.05):
-        #         noiseslopemax = 4
-        #     elif(q[i] <0.06):
-        #         noiseslopemax = 2
-        #     else:
-        #         noiseslopemax = 1.2
+        if(spd[k,i]*bmin[k,i]*bc[i] < actmin[k,i]):
+            actmin[k,i] = spd[k,i]*bmin[k,i]*bc[i]
+            actmin_sub[k,i] = spd[k,i]*bmin_sub[k,i]*bc[i]
+            k_mod[k] =1
+
+        if(subwc == V):
+            if(k_mod[k] == 1):
+                lmin_flag[k,i] = 0
+            store[i+k*window_length -1]= actmin[k,i]
+
+            pmin_u[k,i] = np.min(store[max(0,i+k*window_length-U):i+k*window_length])
+            if(q,[i]< 0.03):
+                noiseslopemax = 8
+            elif(q[i] <0.05):
+                noiseslopemax = 4
+            elif(q[i] <0.06):
+                noiseslopemax = 2
+            else:
+                noiseslopemax = 1.2
 
 
-        #     if(lmin_flag[k,i] and actmin_sub[k,i] < noiseslopemax*pmin_u[k,i] and actmin_sub[k,i > pmin_u[k,i]]):
-        #         pmin_u[k,i] = actmin_sub[k,i]
+            if(lmin_flag[k,i] and actmin_sub[k,i] < noiseslopemax*pmin_u[k,i] and actmin_sub[k,i > pmin_u[k,i]]):
+                pmin_u[k,i] = actmin_sub[k,i]
 
-        #     lmin_flag[k,i] = 0
-        #     subwc = 1
-        #     actmin_sub[k,i] = 999999
-        #     actmin[k,i] = 999999
-        # else:
-        #     if (subwc > 1):
-        #         if(k_mod[k] == 1 ):
-        #            lmin_flag[k,i] =1
-        #         npsd[k, i] = min(actmin_sub[k,i],pmin_u[k,i])
-        #         pmin_u[k,i] = npsd[k,i]
-        # subwc = subwc+1
+            lmin_flag[k,i] = 0
+            subwc = 1
+            actmin_sub[k,i] = 999999
+            actmin[k,i] = 999999
+            npsd[k,i] = npsd[k,i-1]
+        else:
+            if (subwc > 1):
+                if(k_mod[k] == 1 ):
+                   lmin_flag[k,i] =1
+                npsd[k, i] = min(actmin_sub[k,i],pmin_u[k,i])
+                pmin_u[k,i] = npsd[k,i]
+        subwc = subwc+1
 
 
 # for i in range(1,frames):
 #     npsd[:, i] =0.85*npsd[:, i - 1] + (1 - 0.85) * np.power(npsd[:,i],2)
 
-
-
 plt.plot(spd[bin, :], 'g',)
 plt.plot(npsd[bin, :], 'r', linewidth=2)
-
-
 
 specsub = sfftmag - npsd
 negatives = specsub <= 0

@@ -104,10 +104,10 @@ if __name__ == '__main__':
     for i in range(d):
        print (d+lmda)*cov
        print linalg.sqrtm((d+lmda)*cov)
-       sigma[i+1,:] = mean + linalg.sqrtm((d+lmda)*cov)[i,:]
+       sigma[i+1,:] = mean + np.linalg.cholesky((d+lmda)*cov)[i,:]
 
     for i in range(d, 2*d):
-        sigma[i+1,:] = mean - linalg.sqrtm((d+lmda)*cov)[i-d,:]
+        sigma[i+1,:] = mean - np.linalg.cholesky((d+lmda)*cov)[i-d,:]
 
     for i in range(2*d):
     	wc[i+1] = 1/(2*(d+lmda))
@@ -115,6 +115,6 @@ if __name__ == '__main__':
 
     print sigma
     print wc
-    # plt.plot(sigma[:, 0]*wc, sigma[:, 1]*wc, '*g')
+    plt.plot(sigma[:, 0], sigma[:, 1], '*g')
 
     plt.show()

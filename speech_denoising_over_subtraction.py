@@ -78,8 +78,8 @@ lmda = 5
 # Smoothing
 delta = 0.85
 
-cfs, clean = wavfile.read('./data/car_clean_lom.wav')
-fs, ss = wavfile.read('./data/hynek.wav')  # sampled observed signal
+cfs, clean = wavfile.read('./data/f16_clean_lom.wav') # clean signal if available
+fs, ss = wavfile.read('./data/f16_lom.wav')  # sampled observed signal
 ss = ss / np.power(2, 15)
 
 print fs
