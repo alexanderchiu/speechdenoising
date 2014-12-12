@@ -66,7 +66,7 @@ overlap_ratio = 0.5  # [0:0.5]
 # Noise  spectrum
 alpha = 0.75  # [0.75:0.95]
 beta = 2  # [1.5:2.5]
-eta = 1.4  # [1.0:2.0]
+eta = 1.5  # [1.0:2.0]
 
 # Noise Filtering
 sw1 = 4
@@ -79,10 +79,10 @@ lmda = 5
 delta = 0.85
 
 cfs, clean = wavfile.read('./data/car_clean_lom.wav')
-fs, ss = wavfile.read('./data/car_lom.wav')  # sampled observed signal
+fs, ss = wavfile.read('./data/hynek.wav')  # sampled observed signal
 ss = ss / np.power(2, 15)
 
-
+print fs
 ssw, frames = segment_windows(ss, window_length, overlap_ratio)
 dataleng = window_length * (1 - overlap_ratio) * (frames - 1) + window_length
 
