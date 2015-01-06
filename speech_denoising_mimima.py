@@ -54,6 +54,8 @@ overlap_ratio = 0.5  # [0:0.5]
 
 cfs, clean = wavfile.read('./data/f16_clean_lom.wav')
 fs, ss = wavfile.read('./data/f16_lom.wav')  # sampled observed signal
+
+# ss = ss[:1000]
 ss = ss / np.power(2, 15)
 
 
@@ -102,8 +104,8 @@ q = np.zeros(frames)
 bc = np.zeros(frames)
 k_mod = np.zeros(frames)
 lmin_flag = np.zeros(sfft.shape)
-actmin = np.zeros(sfft.shape) +999999
-actmin_sub = np.zeros(sfft.shape) +999999
+actmin = np.inf
+actmin_sub = np.inf
 store = np.zeros(frames*window_length)
 pmin_u = np.zeros(sfft.shape)
 noiseslopemax = 0
@@ -112,8 +114,8 @@ spd[:, 0] = smag[:, 0]
 npsd[:, 0] = spd[:, 0]
 # print npsd[:,0]
 subwc = V
-
-pmin = np.zeros(sfft.shape)
+j = 0
+# pmin = np.zeros(sfft.shape)
 
 for i in range(1, frames):
     for k in range(window_length):
@@ -143,25 +145,26 @@ for i in range(1, frames):
         bc[i] = 1 + 2.12*np.sqrt(q[i])
         
         bmin[k,i] = (1 + (D-1)*2*q[i])
-            # bmin_sub[k,i] = (1 + (V-1)*2*q[i])
+        bmin_sub[k,i] = (1 + (V-1)*2*q[i])
         # pmin[k, i] = np.min(spd[k, max(0, i - D):i])
         # npsd[k,i] =pmin[k,i]*bmin[k,i]*bc[i]
 
         #micro windows currently not working
+        npsd[k,i] = npsd[k,i-1]
 
         k_mod = np.zeros(window_length)
 
-        if(spd[k,i]*bmin[k,i]*bc[i] < actmin[k,i]):
-            actmin[k,i] = spd[k,i]*bmin[k,i]*bc[i]
-            actmin_sub[k,i] = spd[k,i]*bmin_sub[k,i]*bc[i]
+        if(spd[k,i]*bmin[k,i]*bc[i] < actmin):
+            actmin = spd[k,i]*bmin[k,i]*bc[i]
+            actmin_sub = spd[k,i]*bmin_sub[k,i]*bc[i]
             k_mod[k] =1
 
         if(subwc == V):
             if(k_mod[k] == 1):
                 lmin_flag[k,i] = 0
-            store[i+k*window_length -1]= actmin[k,i]
-
-            pmin_u[k,i] = np.min(store[max(0,i+k*window_length-U):i+k*window_length])
+            store[j]= actmin
+            j+=1
+            pmin_u = np.min(store[max(0,j-U):j])
             if(q,[i]< 0.03):
                 noiseslopemax = 8
             elif(q[i] <0.05):
@@ -171,23 +174,21 @@ for i in range(1, frames):
             else:
                 noiseslopemax = 1.2
 
-
             if(lmin_flag[k,i] and actmin_sub[k,i] < noiseslopemax*pmin_u[k,i] and actmin_sub[k,i > pmin_u[k,i]]):
-                pmin_u[k,i] = actmin_sub[k,i]
+                pmin_u = actmin_sub
 
             lmin_flag[k,i] = 0
             subwc = 1
-            actmin_sub[k,i] = 999999
-            actmin[k,i] = 999999
-            npsd[k,i] = npsd[k,i-1]
+            actmin_sub = np.inf
+            actmin = np.inf
+            
         else:
             if (subwc > 1):
                 if(k_mod[k] == 1 ):
                    lmin_flag[k,i] =1
-                npsd[k, i] = min(actmin_sub[k,i],pmin_u[k,i])
-                pmin_u[k,i] = npsd[k,i]
+                npsd[k, i] = min(actmin_sub,pmin_u)
+                pmin_u = npsd[k,i]
         subwc = subwc+1
-
 
 # for i in range(1,frames):
 #     npsd[:, i] =0.85*npsd[:, i - 1] + (1 - 0.85) * np.power(npsd[:,i],2)
